@@ -1,12 +1,31 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 
+// Types
+interface Country {
+  name: string;
+  code: string;
+}
+
+type TariffCategory = 'low' | 'medium' | 'high';
+type TariffRanges = Record<TariffCategory, string[]>;
+
+// Constants
+const TARIFF_RANGES = {
+  LOW_MAX: 50,
+  MEDIUM_MAX: 100,
+};
+
+const TARIFF_MIN = 10;
+const TARIFF_MAX = 200;
+
+// Data
 const countries = [
   { name: "Afghanistan", code: "AF" },
   { name: "Albania", code: "AL" },
@@ -203,98 +222,135 @@ const countries = [
   { name: "Zimbabwe", code: "ZW" }
 ];
 
+const tariffGifs: TariffRanges = {
+  low: [
+    "https://media3.giphy.com/media/l2JhIUyUs8KDCCf3W/giphy.gif",
+    "https://media0.giphy.com/media/wJNGA01o1Zxp6/giphy.gif",
+    "https://media.giphy.com/media/bXE0iECrH9xJe/giphy.gif",
+  ],
+  medium: [
+    "https://media2.giphy.com/media/6L015gMEW3pFC/giphy.gif",
+    "https://media.giphy.com/media/HYQaj17e7yaoE/giphy.gif",
+    "https://media.giphy.com/media/21PUvPL6jCKHtsMr5N/giphy.gif",
+  ],
+  high: [
+    "https://media.giphy.com/media/xTg8B9aULho7shlPmU/giphy.gif",
+    "https://media.giphy.com/media/26tn8u4JaBPQmq8mY/giphy.gif",
+  ]
+};
 
-// Example GIFs for different ranges
-const lowTariffGifs = [
-  "https://media3.giphy.com/media/l2JhIUyUs8KDCCf3W/giphy.gif", // Calm
-  "https://media0.giphy.com/media/wJNGA01o1Zxp6/giphy.gif", // Neutral
-  "https://media.giphy.com/media/bXE0iECrH9xJe/giphy.gif", // Neutral action
-];
-
-const mediumTariffGifs = [
-  "https://media2.giphy.com/media/6L015gMEW3pFC/giphy.gif", // Neutral action
-  "https://media.giphy.com/media/HYQaj17e7yaoE/giphy.gif", // Neutral action
-  "https://media.giphy.com/media/21PUvPL6jCKHtsMr5N/giphy.gif", // Neutral action
-];
-
-const highTariffGifs = [
-  "https://media.giphy.com/media/xTg8B9aULho7shlPmU/giphy.gif", // Energetic
-  "https://media.giphy.com/media/26tn8u4JaBPQmq8mY/giphy.gif", // Energetic
-];
-
-
-function getFlagEmoji(countryCode: string) {
+// Utility functions
+const getFlagEmoji = (countryCode: string): string => {
   const codePoints = countryCode
       .toUpperCase()
       .split('')
       .map(char => 127397 + char.charCodeAt(0));
   return String.fromCodePoint(...codePoints);
-}
+};
 
-export default function Home() {
-  const [selectedCountry, setSelectedCountry] = useState("");
+const getRandomFromArray = <T,>(array: T[]): T => {
+  return array[Math.floor(Math.random() * array.length)];
+};
+
+const getTariffCategory = (tariffValue: number): TariffCategory => {
+  if (tariffValue <= TARIFF_RANGES.LOW_MAX) return 'low';
+  if (tariffValue <= TARIFF_RANGES.MEDIUM_MAX) return 'medium';
+  return 'high';
+};
+
+const generateRandomTariff = (): number => {
+  return Math.floor(Math.random() * (TARIFF_MAX - TARIFF_MIN + 1)) + TARIFF_MIN;
+};
+
+export default function TariffCalculator() {
+  // State
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [tariff, setTariff] = useState<number | null>(null);
   const [gif, setGif] = useState<string | null>(null);
 
-  const [generatedTariffs, setGeneratedTariffs] = useState<Record<string, boolean>>({});
+  // Memoized sorted countries list
+  const sortedCountries = useMemo(() =>
+          [...countries].sort((a, b) => a.name.localeCompare(b.name)),
+      []
+  );
 
-  const handleGenerateTariff = () => {
-    if (!generatedTariffs[selectedCountry]) {
-      const randomTariff = Math.floor(Math.random() * (200 - 10 + 1)) + 10;
-      setTariff(randomTariff);
+  // Handlers
+  const handleCountryChange = (value: string): void => {
+    setSelectedCountry(value);
+    // Clear tariff and gif when country changes
+    setTariff(null);
+    setGif(null);
+  };
 
-      // Set GIF based on the tariff value
-      if (randomTariff <= 50) {
-        setGif(lowTariffGifs[Math.floor(Math.random() * lowTariffGifs.length)]);
-      } else if (randomTariff <= 100) {
-        setGif(mediumTariffGifs[Math.floor(Math.random() * mediumTariffGifs.length)]);
-      } else {
-        setGif(highTariffGifs[Math.floor(Math.random() * highTariffGifs.length)]);
-      }
+  const handleGenerateTariff = (): void => {
+    if (!selectedCountry) return;
 
-      setGeneratedTariffs((prev) => ({
-        ...prev,
-        [selectedCountry]: true,
-      }));
-    }
+    const newTariff = generateRandomTariff();
+    setTariff(newTariff);
+
+    const category = getTariffCategory(newTariff);
+    setGif(getRandomFromArray(tariffGifs[category]));
+  };
+
+  // Component rendering
+  const renderHeader = () => (
+      <div className="absolute top-0 left-0 right-0 h-32 bg-[#1e2a47] flex justify-center items-center px-8">
+        <div className="flex items-center">
+          <img
+              src="https://upload.wikimedia.org/wikipedia/commons/3/36/Seal_of_the_President_of_the_United_States.svg"
+              alt="Presidential Seal"
+              className="h-25 w-auto mr-4"
+          />
+          <h1 className="text-white text-6xl font-bold drop-shadow-md">
+            American Tariff Calculator
+          </h1>
+          <img
+              src="https://upload.wikimedia.org/wikipedia/commons/3/36/Seal_of_the_President_of_the_United_States.svg"
+              alt="Presidential Seal"
+              className="h-25 w-auto ml-4"
+          />
+        </div>
+      </div>
+  );
+
+  const renderTariffResult = () => {
+    if (tariff === null || gif === null) return null;
+
+    return (
+        <motion.div
+            className="mt-8 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+        >
+          <h2 className="text-3xl font-semibold mb-4">
+            Estimated Tariff for {selectedCountry}:
+          </h2>
+          <Badge className="text-2xl px-8 py-4 bg-red-600 text-white rounded-full">
+            {tariff}%
+          </Badge>
+          <div className="mt-6">
+            <img src={gif} alt="Tariff reaction" className="w-96 mx-auto rounded-lg shadow-lg" />
+          </div>
+        </motion.div>
+    );
   };
 
   return (
       <div className="min-h-screen bg-[#1e2a47] text-white p-4 flex flex-col items-center justify-center relative">
-        {/* Top Header with Presidential Seal */}
-        <div className="absolute top-0 left-0 right-0 h-32 bg-[#1e2a47] flex justify-center items-center px-8">
-          <div className="flex items-center">
-            {/* Seal on the left */}
-            <img
-                src="https://upload.wikimedia.org/wikipedia/commons/3/36/Seal_of_the_President_of_the_United_States.svg"
-                alt="Presidential Seal"
-                className="h-25 w-auto mr-4"
-            />
-            <h1 className="text-white text-6xl font-bold drop-shadow-md">
-              American Tariff Calculator
-            </h1>
-            {/* Seal on the right */}
-            <img
-                src="https://upload.wikimedia.org/wikipedia/commons/3/36/Seal_of_the_President_of_the_United_States.svg"
-                alt="Presidential Seal"
-                className="h-25 w-auto ml-4"
-            />
-          </div>
-        </div>
+        {renderHeader()}
 
-        {/* Centered Tariff Calculator Card */}
         <div className="flex-grow flex items-center justify-center mt-40">
           <Card className="w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl rounded-2xl shadow-lg bg-white">
             <CardContent className="p-12">
               <div className="mb-8 text-center">
                 <label className="block mb-6 font-medium text-2xl">Select Country of Origin</label>
-                <Select onValueChange={(value) => setSelectedCountry(value)}>
+                <Select onValueChange={handleCountryChange}>
                   <SelectTrigger className="w-full max-w-md mx-auto text-xl p-4 rounded-md">
                     <SelectValue placeholder="Choose a country" />
                   </SelectTrigger>
                   <SelectContent>
-                    {countries.map(({ name, code }) => (
-                        <SelectItem key={name} value={name}>
+                    {sortedCountries.map(({ name, code }) => (
+                        <SelectItem key={code} value={name}>
                       <span className="flex items-center gap-2 text-xl">
                         <span>{getFlagEmoji(code)}</span>
                         {name}
@@ -313,32 +369,10 @@ export default function Home() {
                 Generate Tariff
               </Button>
 
-              {tariff !== null && gif && (
-                  <motion.div
-                      className="mt-8 text-center"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                  >
-                    <h2 className="text-3xl font-semibold mb-4">
-                      Estimated Tariff for {selectedCountry}:
-                    </h2>
-                    <Badge className="text-2xl px-8 py-4 bg-red-600 text-white rounded-full">
-                      {tariff}%
-                    </Badge>
-                    <div className="mt-6">
-                      <img src={gif} alt="Random GIF" className="w-96 mx-auto rounded-lg shadow-lg" />
-                    </div>
-                  </motion.div>
-              )}
+              {renderTariffResult()}
             </CardContent>
           </Card>
         </div>
-
-        {/*<div className="absolute bottom-0 left-0 right-0 flex justify-center py-6 bg-white border-t">*/}
-        {/*  <p className="text-sm text-gray-500">*/}
-        {/*    Made with ❤️ in the USA*/}
-        {/*  </p>*/}
-        {/*</div>*/}
       </div>
   );
 }
